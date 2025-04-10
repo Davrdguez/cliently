@@ -8,86 +8,92 @@ let user = null;
 let clientes = [];
 let error = '';
 let editandoId = null;
+let toastSuccess = '';
+let toastError = '';
 
-const {
-  data: { user: currentUser },
-  error: authError
-} = await supabase.auth.getUser();
+try {
+  const {
+    data: { user: currentUser },
+    error: authError
+  } = await supabase.auth.getUser();
 
-if (authError || !currentUser) {
-  return Astro.redirect('/login');
-}
-
-user = currentUser;
-
-const url = new URL(Astro.request.url);
-editandoId = url.searchParams.get('edit') ?? null;
-const toastSuccess = url.searchParams.get('success') ?? '';
-const toastError = url.searchParams.get('error') ?? '';
-
-if (Astro.request.method === 'POST') {
-  const formData = await Astro.request.formData();
-
-  const logout = formData.get('logout');
-  if (logout) {
-    await supabase.auth.signOut();
+  if (authError || !currentUser) {
     return Astro.redirect('/login');
   }
 
-  const deleteId = formData.get('delete_id');
-  if (deleteId) {
-    await supabase.from('clientes').delete().eq('id', deleteId.toString());
-    return Astro.redirect('/dashboard?success=Cliente+eliminado+correctamente');
-  }
+  user = currentUser;
 
-  const editId = formData.get('edit_id');
-  if (editId) {
-    const actualizacion = {
+  const url = new URL(Astro.request.url);
+  editandoId = url.searchParams.get('edit') ?? null;
+  toastSuccess = url.searchParams.get('success') ?? '';
+  toastError = url.searchParams.get('error') ?? '';
+
+  if (Astro.request.method === 'POST') {
+    const formData = await Astro.request.formData();
+
+    const logout = formData.get('logout');
+    if (logout) {
+      await supabase.auth.signOut();
+      return Astro.redirect('/login');
+    }
+
+    const deleteId = formData.get('delete_id');
+    if (deleteId) {
+      await supabase.from('clientes').delete().eq('id', deleteId.toString());
+      return Astro.redirect('/dashboard?success=Cliente+eliminado+correctamente');
+    }
+
+    const editId = formData.get('edit_id');
+    if (editId) {
+      const actualizacion = {
+        nombre: formData.get('nombre')?.toString() ?? '',
+        email: formData.get('email')?.toString() ?? '',
+        telefono: formData.get('telefono')?.toString() ?? '',
+        proyecto: formData.get('proyecto')?.toString() ?? '',
+        notas: formData.get('notas')?.toString() ?? ''
+      };
+      await supabase.from('clientes').update(actualizacion).eq('id', editId.toString());
+      return Astro.redirect('/dashboard?success=Cliente+actualizado+correctamente');
+    }
+
+    const nuevoCliente = {
+      user_id: user.id,
       nombre: formData.get('nombre')?.toString() ?? '',
       email: formData.get('email')?.toString() ?? '',
       telefono: formData.get('telefono')?.toString() ?? '',
       proyecto: formData.get('proyecto')?.toString() ?? '',
       notas: formData.get('notas')?.toString() ?? ''
     };
-    await supabase.from('clientes').update(actualizacion).eq('id', editId.toString());
-    return Astro.redirect('/dashboard?success=Cliente+actualizado+correctamente');
+
+    const { error: insertError } = await supabase.from('clientes').insert([nuevoCliente]);
+
+    if (insertError) {
+      error = insertError.message;
+    } else {
+      return Astro.redirect('/dashboard?success=Cliente+creado+correctamente');
+    }
   }
 
-  const nuevoCliente = {
-    user_id: user.id,
-    nombre: formData.get('nombre')?.toString() ?? '',
-    email: formData.get('email')?.toString() ?? '',
-    telefono: formData.get('telefono')?.toString() ?? '',
-    proyecto: formData.get('proyecto')?.toString() ?? '',
-    notas: formData.get('notas')?.toString() ?? ''
-  };
+  const { data, error: fetchError } = await supabase
+    .from('clientes')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('nombre', { ascending: true });
 
-  const { error: insertError } = await supabase.from('clientes').insert([nuevoCliente]);
-
-  if (insertError) {
-    error = insertError.message;
+  if (fetchError) {
+    error = fetchError.message;
   } else {
-    return Astro.redirect('/dashboard?success=Cliente+creado+correctamente');
+    clientes = data;
   }
-}
 
-const { data, error: fetchError } = await supabase
-  .from('clientes')
-  .select('*')
-  .eq('user_id', user.id)
-  .order('nombre', { ascending: true });
-
-if (fetchError) {
-  error = fetchError.message;
-} else {
-  clientes = data;
+} catch (err) {
+  console.error('Error en /dashboard:', err);
+  return new Response('Error interno en el servidor', { status: 500 });
 }
 ---
 
 <DashboardLayout>
   <h2 class="text-2xl font-semibold mb-6">Mis Clientes</h2>
-
-  
 
   {error && <p class="text-red-600 mb-4">{error}</p>}
 
