@@ -1,0 +1,76 @@
+---
+import AuthLayout from '../layouts/AuthLayout.astro';
+import { supabase } from '../lib/supabaseClient';
+
+export const prerender = false;
+
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const email = formData.get('email')?.toString() ?? '';
+  const password = formData.get('password')?.toString() ?? '';
+
+  const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (loginError) {
+    error = loginError.message;
+  } else {
+    return Astro.redirect('/dashboard');
+  }
+}
+---
+
+<AuthLayout>
+  <div class="bg-white p-8 rounded-xl shadow-md w-full">
+    <h1 class="text-2xl font-bold mb-6 text-center text-blue-900 flex items-center justify-center gap-2">
+      <!-- LogIn icon -->
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-7.5A2.25 2.25 0 0 0 3.75 5.25v13.5A2.25 2.25 0 0 0 6 21h7.5a2.25 2.25 0 0 0 2.25-2.25V15" />
+        <path d="M18 12H9m0 0 3-3m-3 3 3 3" />
+      </svg>
+      Iniciar sesión
+    </h1>
+
+    {error && <p class="text-red-600 mb-4 text-sm">{error}</p>}
+
+    <form method="POST" class="space-y-4">
+      <input
+        name="email"
+        type="email"
+        placeholder="Correo electrónico"
+        required
+        class="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <input
+        name="password"
+        type="password"
+        placeholder="Contraseña"
+        required
+        class="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <button
+        type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded shadow flex items-center justify-center gap-2"
+      >
+        <!-- Login icon inside button -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-7.5A2.25 2.25 0 0 0 3.75 5.25v13.5A2.25 2.25 0 0 0 6 21h7.5a2.25 2.25 0 0 0 2.25-2.25V15" />
+          <path d="M18 12H9m0 0 3-3m-3 3 3 3" />
+        </svg>
+        Entrar
+      </button>
+    </form>
+
+    <p class="text-sm text-center text-gray-600 mt-4">
+      ¿No tienes cuenta?
+      <a href="/register" class="text-blue-600 hover:underline ml-1 inline-flex items-center gap-1">
+        <!-- UserPlus icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-6m3 3h-6M12 4a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM6 14a6 6 0 0 1 12 0v0" />
+        </svg>
+        Regístrate
+      </a>
+    </p>
+  </div>
+</AuthLayout>

@@ -1,0 +1,36 @@
+---
+  // src/components/ClienteForm.astro
+---
+
+<form method="POST" class="bg-white p-6 rounded-xl shadow mb-8 border border-gray-200">
+  <h3 class="text-xl font-semibold mb-4 text-blue-900 flex items-center gap-2">
+    <!-- Plus icon -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14m7-7H5" />
+    </svg>
+    Añadir Cliente
+  </h3>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <input name="nombre" placeholder="Nombre completo" required class="p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+    <input name="email" placeholder="Correo electrónico" required class="p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+    <input name="telefono" placeholder="Teléfono" required class="p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+    <input name="proyecto" placeholder="Proyecto" required class="p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+    
+    <!-- Selector de urgencia -->
+    <select name="urgencia" required class="p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <option value="" disabled selected>Urgencia</option>
+      <option value="alta">Alta</option>
+      <option value="media">Media</option>
+      <option value="baja">Baja</option>
+    </select>
+
+    <textarea name="notas" placeholder="Notas adicionales" class="p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 sm:col-span-2"></textarea>
+  </div>
+  <button class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded shadow flex items-center gap-2">
+    <!-- Save icon -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+    Guardar Cliente
+  </button>
+</form>

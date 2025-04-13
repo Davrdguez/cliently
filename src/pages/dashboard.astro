@@ -1,0 +1,165 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import ClienteForm from '../components/ClienteForm.astro';
+import ClienteCard from '../components/ClienteCard.astro';
+import { supabase } from '../lib/supabaseClient';
+
+let user = null;
+let clientes = [];
+let error = '';
+let editandoId = null;
+let toastSuccess = '';
+let toastError = '';
+let tareasPorCliente = {};
+
+try {
+  const {
+    data: { user: currentUser },
+    error: authError
+  } = await supabase.auth.getUser();
+
+  if (authError || !currentUser) {
+    return Astro.redirect('/login');
+  }
+
+  user = currentUser;
+
+  const url = new URL(Astro.request.url);
+  editandoId = url.searchParams.get('edit') ?? null;
+  toastSuccess = url.searchParams.get('success') ?? '';
+  toastError = url.searchParams.get('error') ?? '';
+
+  if (Astro.request.method === 'POST') {
+    const formData = await Astro.request.formData();
+
+    if (formData.get('logout')) {
+      await supabase.auth.signOut();
+      return Astro.redirect('/login');
+    }
+
+    if (formData.get('delete_id')) {
+      await supabase.from('clientes').delete().eq('id', formData.get('delete_id').toString());
+      return Astro.redirect('/dashboard?success=Cliente+eliminado+correctamente');
+    }
+
+    if (formData.get('tarea_eliminar_id')) {
+      await supabase.from('tareas').delete().eq('id', formData.get('tarea_eliminar_id').toString());
+      return Astro.redirect('/dashboard?success=Tarea+eliminada');
+    }
+
+    if (formData.get('edit_id')) {
+      const actualizacion = {
+        nombre: formData.get('nombre')?.toString() ?? '',
+        email: formData.get('email')?.toString() ?? '',
+        telefono: formData.get('telefono')?.toString() ?? '',
+        proyecto: formData.get('proyecto')?.toString() ?? '',
+        notas: formData.get('notas')?.toString() ?? '',
+        urgencia: formData.get('urgencia')?.toString() ?? ''
+      };
+      await supabase.from('clientes').update(actualizacion).eq('id', formData.get('edit_id').toString());
+      return Astro.redirect('/dashboard?success=Cliente+actualizado+correctamente');
+    }
+
+    const nuevoCliente = {
+      user_id: user.id,
+      nombre: formData.get('nombre')?.toString() ?? '',
+      email: formData.get('email')?.toString() ?? '',
+      telefono: formData.get('telefono')?.toString() ?? '',
+      proyecto: formData.get('proyecto')?.toString() ?? '',
+      notas: formData.get('notas')?.toString() ?? '',
+      urgencia: formData.get('urgencia')?.toString() ?? ''
+    };
+
+    const { error: insertError } = await supabase.from('clientes').insert([nuevoCliente]);
+    if (insertError) {
+      error = insertError.message;
+    } else {
+      return Astro.redirect('/dashboard?success=Cliente+creado+correctamente');
+    }
+  }
+
+  const { data, error: fetchError } = await supabase
+    .from('clientes')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('nombre', { ascending: true });
+
+  if (fetchError) {
+    error = fetchError.message;
+  } else {
+    clientes = data;
+  }
+
+  const { data: tareasActivas, error: tareasError } = await supabase
+    .from('tareas')
+    .select('id, cliente_id, titulo')
+    .eq('completado', false);
+
+  if (!tareasError && tareasActivas) {
+    for (const tarea of tareasActivas) {
+      const idCliente = tarea.cliente_id;
+      if (!tareasPorCliente[idCliente]) tareasPorCliente[idCliente] = [];
+      tareasPorCliente[idCliente].push({ id: tarea.id, titulo: tarea.titulo });
+    }
+  }
+
+} catch (err) {
+  console.error('Error en /dashboard:', err);
+  return new Response('Error interno en el servidor', { status: 500 });
+}
+---
+
+<DashboardLayout>
+  <h2 class="text-2xl font-semibold mb-6">Mis Clientes</h2>
+
+  {error && <p class="text-red-600 mb-4">{error}</p>}
+
+  <ClienteForm />
+
+  <input
+    type="search"
+    placeholder="Buscar cliente por nombre..."
+    oninput="filtrarClientes(this.value)"
+    class="mb-6 p-3 w-full border border-gray-300 rounded shadow-sm"
+  />
+
+  {toastSuccess && (
+    <div class="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow z-50 animate-fade-in-out">
+      ✅ {toastSuccess}
+    </div>
+  )}
+
+  {toastError && (
+    <div class="fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded shadow z-50 animate-fade-in-out">
+      ❌ {toastError}
+    </div>
+  )}
+
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    {clientes.length > 0 ? (
+      clientes.map(cliente => (
+        <ClienteCard
+          cliente={cliente}
+          editandoId={editandoId}
+          tareasActivas={tareasPorCliente[cliente.id]?.length ?? 0}
+          tareasLista={tareasPorCliente[cliente.id] ?? []}
+        />
+      ))
+    ) : (
+      <p class="text-center text-gray-500 col-span-full py-10">
+        No tienes clientes aún. ¡Crea el primero!
+      </p>
+    )}
+  </div>
+
+  <script is:inline>
+    window.filtrarClientes = (texto) => {
+      const cards = document.querySelectorAll('.cliente-card');
+      const query = texto.toLowerCase();
+      cards.forEach(card => {
+        const nombre = card.dataset.nombre;
+        card.style.display = nombre.includes(query) ? 'block' : 'none';
+      });
+    };
+  </script>
+</DashboardLayout>

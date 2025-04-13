@@ -1,0 +1,143 @@
+---
+import { supabase } from '../../lib/supabaseClient';
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+
+const { params, request } = Astro;
+const { id } = params;
+
+// Si se envió el formulario, insertar o eliminar tarea
+if (request.method === 'POST') {
+  const formData = await request.formData();
+  const nuevaTarea = formData.get('tarea');
+  const eliminarId = formData.get('tarea_eliminar_id');
+
+  if (eliminarId && typeof eliminarId === 'string') {
+    await supabase.from('tareas').delete().eq('id', eliminarId);
+  }
+
+  if (nuevaTarea && typeof nuevaTarea === 'string') {
+    const { error: insertError } = await supabase.from('tareas').insert([
+      {
+        cliente_id: id,
+        titulo: nuevaTarea,
+        completado: false,
+      },
+    ]);
+
+    if (insertError) {
+      console.error("Error al insertar tarea:", insertError.message);
+    }
+  }
+
+  return new Response(null, {
+    status: 303,
+    headers: { Location: `/clientes/${id}` },
+  });
+}
+
+// Obtener cliente
+const { data: cliente, error } = await supabase
+  .from('clientes')
+  .select('*')
+  .eq('id', id)
+  .single();
+
+if (error || !cliente) {
+  throw new Error('Cliente no encontrado');
+}
+
+// Obtener tareas del cliente
+const { data: tareas, error: tareasError } = await supabase
+  .from('tareas')
+  .select('*')
+  .eq('cliente_id', id)
+  .order('created_at', { ascending: false });
+---
+
+<DashboardLayout>
+  <h1 class="text-3xl font-bold mb-6">Perfil de Cliente</h1>
+
+  <!-- Tarjeta principal -->
+  <div class="bg-white rounded-xl shadow p-6 mb-6 border border-gray-200">
+    <h2 class="text-2xl font-semibold text-blue-900 mb-2">{cliente.nombre}</h2>
+    <p class="text-gray-700"><strong>Email:</strong> {cliente.email}</p>
+    <p class="text-gray-700"><strong>Teléfono:</strong> {cliente.telefono}</p>
+    <p class="text-gray-700"><strong>Proyecto:</strong> {cliente.proyecto || '—'}</p>
+
+    {cliente.urgencia && (
+      <p class={`mt-2 inline-block px-3 py-1 text-xs rounded font-medium ${
+        cliente.urgencia === 'alta' ? 'bg-red-100 text-red-700' :
+        cliente.urgencia === 'media' ? 'bg-yellow-100 text-yellow-700' :
+        'bg-green-100 text-green-700'
+      }`}>
+        Urgencia: {cliente.urgencia}
+      </p>
+    )}
+  </div>
+
+  <!-- Grid de info adicional -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Notas -->
+    <div class="bg-white rounded-xl shadow p-5 border border-gray-200">
+      <h3 class="text-lg font-semibold mb-2 text-blue-700">Notas</h3>
+      <p class="text-gray-700 whitespace-pre-line">{cliente.notas || "Sin notas aún."}</p>
+    </div>
+
+    <!-- Tareas relacionadas -->
+    <div class="bg-white rounded-xl shadow p-5 border border-gray-200">
+      <h3 class="text-lg font-semibold mb-4 text-blue-700">Tareas</h3>
+
+      <!-- Formulario para añadir tarea -->
+      <form method="POST" class="mb-4">
+        <label for="tarea" class="block text-sm font-medium text-gray-700 mb-1">Nueva tarea</label>
+        <div class="flex gap-2">
+          <input
+            id="tarea"
+            name="tarea"
+            required
+            class="flex-1 p-2 border border-gray-300 rounded shadow-sm"
+            placeholder="Ej: Llamar al cliente"
+          />
+          <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow-sm">
+            Añadir
+          </button>
+        </div>
+      </form>
+
+      <!-- Lista de tareas -->
+      {tareas && tareas.length > 0 ? (
+        <ul class="space-y-2">
+          {tareas.map(tarea => (
+            <li class="bg-gray-100 p-3 rounded flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                {tarea.completado ? (
+                  <span class="text-green-600">✅</span>
+                ) : (
+                  <span class="text-yellow-500">🕒</span>
+                )}
+                <span class={tarea.completado ? 'line-through text-gray-500' : 'text-gray-800'}>
+                  {tarea.titulo}
+                </span>
+              </div>
+              <form method="POST">
+                <input type="hidden" name="tarea_eliminar_id" value={tarea.id} />
+                <button type="submit" class="text-red-600 hover:text-red-800 text-xs ml-3">
+                  Eliminar
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="text-gray-500 text-sm">No hay tareas todavía.</p>
+      )}
+    </div>
+  </div>
+
+  <!-- Botón volver -->
+  <div class="mt-8">
+    <a href="/dashboard" class="text-blue-600 hover:underline text-sm">
+      &larr; Volver a la lista de clientes
+    </a>
+  </div>
+</DashboardLayout>
